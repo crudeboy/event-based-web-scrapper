@@ -4,26 +4,19 @@ var { DOMParser } = require("xmldom");
 const EventEmitter = require("events");
 
 class TinyScraper extends EventEmitter {
-	constructor(url) {
+	timeout_val;
+	constructor(url, timeout = 2000) {
 		super();
-		this.emit("scrapeStarted", "url");
-		// this.parseUrl(url);
+		this.timeout_val = timeout
 		this.ScapperEvent(url);
-		setTimeout(() => {
-            this.emit("timeout")
-            
-		    console.log("done!!!!!")
-            
-		}, 2000)
 	}
 
 	async ScapperEvent(url) {
 		try {
-			// this.emit("scrapeStarted", url);
 			await this.parseUrl(url);
-			return "";
 		} catch (error) {
-			console.log(error, "error");
+			this.emit('error')
+			console.log("error occurred while scrapping");
 		}
 	}
 
@@ -31,6 +24,7 @@ class TinyScraper extends EventEmitter {
 		try {
 			return axios.request({ url });
 		} catch (error) {
+			this.emit('error')
 			console.log(error, "error");
 		}
 	}
@@ -49,7 +43,8 @@ class TinyScraper extends EventEmitter {
 			}).parseFromString(body);
 			return doc;
 		} catch (error) {
-			console.log(error, "error");
+			this.emit('error')
+			console.log("error occurred while scrapping");
 		}
 	}
 
@@ -57,7 +52,8 @@ class TinyScraper extends EventEmitter {
 		try {
 			return xpath.select(xpathselector, document);
 		} catch (error) {
-			console.log(error, "error");
+			this.emit('error')
+			console.log("error occurred while scrapping");
 		}
 	}
 
@@ -73,19 +69,33 @@ class TinyScraper extends EventEmitter {
 
 			return obj;
 		} catch (error) {
-			console.log(error, "error");
+			this.emit('error')
+			console.log("error occurred while scrapping");
 		}
 	}
 
 	async parseUrl(url) {
 		try {
-			// this.emit("scrapeStarted", url);
+			//emmit the scrapping start event
+			this.emit("scrapeStarted", url);
+
+			//initialize teh event for use in the set timeout to check if the scapping process is done
+			let result;
+			if(this.timeout_val){
+				setTimeout(() => {
+					if(!result){
+						this.emit("timeout");
+					}
+				}, this.timeout_val);
+			}
+
+
 			const xpaths = {
 				title: "string(//meta[@property='og:title']/@content)",
 				description: "string(//meta[@property='og:description']/@content)",
 				image: "string(//meta[@property='og:image']/@content)",
 			};
-			const result = await this.retrievePage(url).then(async (response) => {
+			result = await this.retrievePage(url).then(async (response) => {
 				const document = await this.convertBodyToDocument(response.data);
 				const mappedProperties = await this.mapProperties(xpaths, document);
 				return mappedProperties;
@@ -93,7 +103,8 @@ class TinyScraper extends EventEmitter {
 			this.emit("scrapeSuccess", result);
 			return "result";
 		} catch (error) {
-			console.log(error, "error");
+			this.emit('error')
+			console.log("error occurred while scrapping");
 		}
 	}
 }
